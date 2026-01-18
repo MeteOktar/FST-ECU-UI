@@ -19,6 +19,7 @@ class MockDataSource:
         self._coolant = 20.0
         self._battery = 13.5
         self._lambda = 1.0
+        self._gear = 1  # Start in 1st gear
 
     def start(self):
         if self._running:
@@ -49,8 +50,21 @@ class MockDataSource:
             self._rpm += diff * 0.1 # Lag
             if self._rpm > 13500: self._rpm = 13500 # Limiter
             
-            # 3. Speed: Simple ratio to RPM (e.g. 5th gear)
-            self._speed = (self._rpm / 13000) * 120
+            # 3. Gear shifting simulation
+            # Gear ratios (approximate, higher number = lower gear)
+            gear_ratios = [3.5, 2.0, 1.4, 1.0, 0.8]
+            ratio = gear_ratios[self._gear - 1]
+            
+            # Speed: Based on RPM and current gear ratio
+            self._speed = (self._rpm / 13000) * 120 / ratio
+            
+            # Gear shifting logic
+            if self._rpm > 6500 and self._gear < 5:
+                self._gear += 1
+                print(f"Shifted to gear {self._gear}")
+            elif self._rpm < 2500 and self._gear > 1 and self._speed > 10:  # Don't downshift at low speed
+                self._gear -= 1
+                print(f"Shifted to gear {self._gear}")
            
             # 4. Coolant: Slow heat up
             if self._coolant < 90:
