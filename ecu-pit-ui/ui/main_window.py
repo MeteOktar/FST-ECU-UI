@@ -45,7 +45,7 @@ class MainWindow(QMainWindow):
         # Timer for updates
         self.timer = QTimer()
         self.timer.timeout.connect(self.update_plots)
-        self.timer.start(100)  # 10 Hz
+        self.timer.start(50)  # 20 Hz
 
         self.start_time = time.time()
 
