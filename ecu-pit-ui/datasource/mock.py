@@ -4,10 +4,12 @@ import time
 import math
 import random
 from core.signal_store import SignalStore
+from core.lap_timer import LapTimer
 
 class MockDataSource:
-    def __init__(self, store: SignalStore, interval: float = 0.05):
+    def __init__(self, store: SignalStore, lap_timer: LapTimer | None = None, interval: float = 0.05):
         self._store = store
+        self._lap_timer = lap_timer
         self._interval = interval
         self._running = False
         self._thread: threading.Thread | None = None
@@ -24,12 +26,18 @@ class MockDataSource:
         self._oil_temp = 20.0
         self._fuel_pressure = 0.0
 
+        # Lap simulation
+        self._next_lap_at = 0.0  # monotonic time for next lap trigger
+
     def start(self):
         if self._running:
             return
         self._running = True
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+        if self._lap_timer:
+            self._lap_timer.start_session()
+            self._next_lap_at = time.monotonic() + random.uniform(25, 45)
         print("Mock Data Source Started.")
 
     def stop(self):
@@ -111,6 +119,14 @@ class MockDataSource:
             self._store.update("oil_temp", self._oil_temp)
             self._store.update("fuel_pressure", self._fuel_pressure)
             self._store.update("gear", float(self._gear))
+
+            # 10. Lap timer simulation
+            if self._lap_timer and time.monotonic() >= self._next_lap_at:
+                info = self._lap_timer.complete_lap()
+                if info:
+                    print(f"Lap {info.lap_number}: {self._lap_timer.format_time(info.lap_time)}"
+                          f"{' (PB!)' if info.is_personal_best else ''}")
+                self._next_lap_at = time.monotonic() + random.uniform(25, 45)
 
             time.sleep(self._interval)
             t += self._interval
