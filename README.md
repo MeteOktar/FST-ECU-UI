@@ -60,6 +60,24 @@ python ecu-pit-ui/Main.py --driver
 
 Fullscreen açılır. Çıkmak için `Cmd+Q` veya `Alt+F4`.
 
+### Klavye Kısayolları (Driver Dashboard)
+
+| Tuş     | İşlev                                                            |
+| ------- | ---------------------------------------------------------------- |
+| `Space` | Mock veri akışını kes / devam ettir (CAN disconnect simülasyonu) |
+| `Cmd+Q` | Çıkış                                                            |
+
+### Stale Data Detection
+
+CAN hattı koparsa veya veri akışı durursa dashboard otomatik tepki verir:
+
+- **⚠ NO SIGNAL ⚠** kırmızı banner ekranın üstünde belirir
+- Vites, hız, CLT, OIL değerleri "–" yazısına döner ve kararır
+- RPM bar sıfıra düşer
+- Veri tekrar geldiğinde her şey otomatik normale döner
+
+Stale süresi `config/signals.yaml` içindeki `stale_after_s` değerine göre belirlenir.
+
 ## Dosya Düzeni
 
 ```

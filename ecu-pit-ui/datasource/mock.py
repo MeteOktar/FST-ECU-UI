@@ -33,6 +33,7 @@ class MockDataSource:
         if self._running:
             return
         self._running = True
+        self._paused = False
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
         if self._lap_timer:
@@ -46,9 +47,21 @@ class MockDataSource:
             self._thread.join()
         print("Mock Data Source Stopped.")
 
+    def pause(self):
+        self._paused = True
+        print("Mock Data Source PAUSED (simulating CAN disconnect).")
+
+    def resume(self):
+        self._paused = False
+        print("Mock Data Source RESUMED.")
+
     def _run(self):
         t = 0.0
         while self._running:
+            if self._paused:
+                time.sleep(self._interval)
+                continue
+
             start_time = time.monotonic()
             
             # 1. TPS: Random walk

@@ -37,6 +37,7 @@ CLR_LAP_TIME  = "#AAAAAA"
 CLR_DELTA_POS = "#CC1100"      # kırmızı — PB'den yavaş
 CLR_DELTA_NEG = "#1DB954"      # yeşil — PB'den hızlı
 CLR_PB_FLASH  = "#B266FF"      # mor — yeni PB
+CLR_STALE     = "#331111"      # koyu kırmızı — stale veri
 
 # ── Colour palette ──────────────────────────────────────────
 CLR_BG        = "#0A0A0A"
@@ -211,10 +212,11 @@ class BatteryBar(QWidget):
 
 # ── Main Dashboard Window ───────────────────────────────────
 class DriverDashboard(QMainWindow):
-    def __init__(self, store: SignalStore, lap_timer: LapTimer | None = None):
+    def __init__(self, store: SignalStore, lap_timer: LapTimer | None = None, mock_source=None):
         super().__init__()
         self.store = store
         self.lap_timer = lap_timer
+        self._mock_source = mock_source
         self.setWindowTitle("FST Driver Dashboard")
         self.setStyleSheet(f"background-color: {CLR_BG};")
 
@@ -227,6 +229,21 @@ class DriverDashboard(QMainWindow):
         # ── RPM Bar ──
         self.rpm_bar = RPMBar()
         root.addWidget(self.rpm_bar)
+
+        # ── NO SIGNAL banner (hidden by default) ──
+        self.no_signal_label = QLabel("⚠  NO SIGNAL  ⚠")
+        self.no_signal_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_signal_label.setStyleSheet(f"""
+            color: #FFFFFF;
+            background-color: #CC0000;
+            font-size: 48px;
+            font-family: '{FONT_FAMILY}', sans-serif;
+            font-weight: 800;
+            padding: 8px;
+        """)
+        self.no_signal_label.setFixedHeight(72)
+        self.no_signal_label.hide()
+        root.addWidget(self.no_signal_label)
 
         # ── Thin separator ──
         sep1 = QWidget()
@@ -244,7 +261,7 @@ class DriverDashboard(QMainWindow):
             font-family: '{FONT_FAMILY}', sans-serif;
             font-weight: 200;
         """)
-        root.addWidget(self.gear_label, stretch=4)
+        root.addWidget(self.gear_label, stretch=3)
 
         # ── Speed ──
         speed_container = QWidget()
@@ -259,7 +276,7 @@ class DriverDashboard(QMainWindow):
         )
         self.speed_label.setStyleSheet(f"""
             color: {CLR_SPEED};
-            font-size: 100px;
+            font-size: 120px;
             font-family: '{FONT_FAMILY}', sans-serif;
             font-weight: 300;
         """)
@@ -271,14 +288,14 @@ class DriverDashboard(QMainWindow):
         )
         unit_label.setStyleSheet(f"""
             color: {CLR_UNIT};
-            font-size: 22px;
+            font-size: 40px;
             font-family: '{FONT_FAMILY}', sans-serif;
             font-weight: 300;
-            padding-bottom: 18px;
+            padding-bottom: 22px;
         """)
         speed_layout.addWidget(unit_label)
 
-        root.addWidget(speed_container, stretch=1)
+        root.addWidget(speed_container)
 
         # ── Lap Time Row ──
         if self.lap_timer:
@@ -296,7 +313,7 @@ class DriverDashboard(QMainWindow):
             self.lap_elapsed_label = QLabel("LAP  0:00.000")
             self.lap_elapsed_label.setStyleSheet(f"""
                 color: {CLR_LAP_TIME};
-                font-size: 20px;
+                font-size: 28px;
                 font-family: '{FONT_FAMILY}', monospace;
                 font-weight: 400;
             """)
@@ -308,7 +325,7 @@ class DriverDashboard(QMainWindow):
             self.last_lap_label = QLabel("LAST  –:––.–––")
             self.last_lap_label.setStyleSheet(f"""
                 color: {CLR_LAP_TIME};
-                font-size: 20px;
+                font-size: 28px;
                 font-family: '{FONT_FAMILY}', monospace;
                 font-weight: 400;
             """)
@@ -320,7 +337,7 @@ class DriverDashboard(QMainWindow):
             self.delta_label = QLabel("Δ  –.–––")
             self.delta_label.setStyleSheet(f"""
                 color: {CLR_UNIT};
-                font-size: 24px;
+                font-size: 36px;
                 font-family: '{FONT_FAMILY}', monospace;
                 font-weight: 700;
             """)
@@ -336,7 +353,7 @@ class DriverDashboard(QMainWindow):
         root.addWidget(sep2)
         root.addSpacing(6)
 
-        # ── Bottom bar: warnings + battery ──
+        # ── Bottom bar: warnings + critical readouts + battery ──
         bottom = QHBoxLayout()
         bottom.setContentsMargins(0, 0, 0, 0)
         bottom.setSpacing(8)
@@ -348,6 +365,30 @@ class DriverDashboard(QMainWindow):
             bottom.addWidget(w)
 
         bottom.addStretch()
+
+        # Coolant temp readout
+        self.coolant_label = QLabel("CLT  –°C")
+        self.coolant_label.setStyleSheet(f"""
+            color: {CLR_LAP_TIME};
+            font-size: 32px;
+            font-family: '{FONT_FAMILY}', monospace;
+            font-weight: 500;
+        """)
+        bottom.addWidget(self.coolant_label)
+
+        bottom.addSpacing(16)
+
+        # Oil pressure readout
+        self.oil_p_label = QLabel("OIL  – bar")
+        self.oil_p_label.setStyleSheet(f"""
+            color: {CLR_LAP_TIME};
+            font-size: 32px;
+            font-family: '{FONT_FAMILY}', monospace;
+            font-weight: 500;
+        """)
+        bottom.addWidget(self.oil_p_label)
+
+        bottom.addSpacing(16)
 
         self.battery_bar = BatteryBar()
         bottom.addWidget(self.battery_bar, alignment=Qt.AlignmentFlag.AlignRight)
@@ -363,25 +404,103 @@ class DriverDashboard(QMainWindow):
     def _refresh(self):
         snap = self.store.snapshot()
 
-        # Gear
-        gv = snap["gear"].value
-        if gv is not None:
-            g = int(gv)
-            self.gear_label.setText(str(g) if g > 0 else "N")
+        # Check if any critical signal is stale
+        critical = ["rpm", "speed", "gear"]
+        any_stale = any(snap[s].stale for s in critical)
+
+        # NO SIGNAL banner
+        if any_stale:
+            self.no_signal_label.show()
         else:
+            self.no_signal_label.hide()
+
+        # Gear
+        g_sig = snap["gear"]
+        if g_sig.stale or g_sig.value is None:
             self.gear_label.setText("–")
+            self.gear_label.setStyleSheet(f"""
+                color: {CLR_STALE};
+                font-size: 260px;
+                font-family: '{FONT_FAMILY}', sans-serif;
+                font-weight: 200;
+            """)
+        else:
+            g = int(g_sig.value)
+            self.gear_label.setText(str(g) if g > 0 else "N")
+            self.gear_label.setStyleSheet(f"""
+                color: {CLR_GEAR};
+                font-size: 260px;
+                font-family: '{FONT_FAMILY}', sans-serif;
+                font-weight: 200;
+            """)
 
         # RPM
-        rv = snap["rpm"].value
-        if rv is not None:
-            self.rpm_bar.set_rpm(rv)
+        r_sig = snap["rpm"]
+        if r_sig.stale or r_sig.value is None:
+            self.rpm_bar.set_rpm(0)
+        else:
+            self.rpm_bar.set_rpm(r_sig.value)
 
         # Speed
-        sv = snap["speed"].value
-        if sv is not None:
-            self.speed_label.setText(str(int(sv)))
-        else:
+        s_sig = snap["speed"]
+        if s_sig.stale or s_sig.value is None:
             self.speed_label.setText("–")
+            self.speed_label.setStyleSheet(f"""
+                color: {CLR_STALE};
+                font-size: 120px;
+                font-family: '{FONT_FAMILY}', sans-serif;
+                font-weight: 300;
+            """)
+        else:
+            self.speed_label.setText(str(int(s_sig.value)))
+            self.speed_label.setStyleSheet(f"""
+                color: {CLR_SPEED};
+                font-size: 120px;
+                font-family: '{FONT_FAMILY}', sans-serif;
+                font-weight: 300;
+            """)
+
+        # Coolant temp (warn > 100°C, stale → dim)
+        c_sig = snap["coolant"]
+        if c_sig.stale or c_sig.value is None:
+            self.coolant_label.setStyleSheet(f"""
+                color: {CLR_STALE};
+                font-size: 32px;
+                font-family: '{FONT_FAMILY}', monospace;
+                font-weight: 500;
+            """)
+            self.coolant_label.setText("CLT  –°C")
+        else:
+            ct = c_sig.value
+            color = CLR_DELTA_POS if ct > 100 else CLR_LAP_TIME
+            self.coolant_label.setStyleSheet(f"""
+                color: {color};
+                font-size: 32px;
+                font-family: '{FONT_FAMILY}', monospace;
+                font-weight: {'700' if ct > 100 else '500'};
+            """)
+            self.coolant_label.setText(f"CLT  {int(ct)}°C")
+
+        # Oil pressure (warn < 1.5 bar, stale → dim)
+        o_sig = snap["oil_pressure"]
+        if o_sig.stale or o_sig.value is None:
+            self.oil_p_label.setStyleSheet(f"""
+                color: {CLR_STALE};
+                font-size: 32px;
+                font-family: '{FONT_FAMILY}', monospace;
+                font-weight: 500;
+            """)
+            self.oil_p_label.setText("OIL  – bar")
+        else:
+            op = o_sig.value
+            color = CLR_DELTA_POS if op < 1.5 else CLR_LAP_TIME
+            self.oil_p_label.setStyleSheet(f"""
+                color: {color};
+                font-size: 32px;
+                font-family: '{FONT_FAMILY}', monospace;
+                font-weight: {'700' if op < 1.5 else '500'};
+            """)
+            self.oil_p_label.setText(f"OIL  {op:.1f} bar")
 
         # Lap timer
         if self.lap_timer:
@@ -398,7 +517,7 @@ class DriverDashboard(QMainWindow):
                 if last.is_personal_best:
                     self.last_lap_label.setStyleSheet(f"""
                         color: {CLR_PB_FLASH};
-                        font-size: 20px;
+                        font-size: 28px;
                         font-family: '{FONT_FAMILY}', monospace;
                         font-weight: 700;
                     """)
@@ -406,7 +525,7 @@ class DriverDashboard(QMainWindow):
                 else:
                     self.last_lap_label.setStyleSheet(f"""
                         color: {CLR_LAP_TIME};
-                        font-size: 20px;
+                        font-size: 28px;
                         font-family: '{FONT_FAMILY}', monospace;
                         font-weight: 400;
                     """)
@@ -419,16 +538,26 @@ class DriverDashboard(QMainWindow):
                 color = CLR_DELTA_NEG if delta < 0 else CLR_DELTA_POS
                 self.delta_label.setStyleSheet(f"""
                     color: {color};
-                    font-size: 24px;
+                    font-size: 36px;
                     font-family: '{FONT_FAMILY}', monospace;
                     font-weight: 700;
                 """)
                 self.delta_label.setText(f"Δ  {delta_str}")
 
+    # ── Keyboard shortcut ───────────────────────────────────
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key.Key_Space and self._mock_source:
+            if self._mock_source._paused:
+                self._mock_source.resume()
+            else:
+                self._mock_source.pause()
+        else:
+            super().keyPressEvent(event)
+
 
 # ── Entry point ─────────────────────────────────────────────
-def create_driver_ui(store: SignalStore, lap_timer: LapTimer | None = None):
+def create_driver_ui(store: SignalStore, lap_timer: LapTimer | None = None, mock_source=None):
     app = QApplication(sys.argv)
-    window = DriverDashboard(store, lap_timer)
+    window = DriverDashboard(store, lap_timer, mock_source)
     window.showFullScreen()
     sys.exit(app.exec())

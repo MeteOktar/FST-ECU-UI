@@ -27,7 +27,7 @@ def main():
         if driver_mode:
             print("Starting Driver Dashboard...")
             from ui.driver_dashboard import create_driver_ui
-            create_driver_ui(store, lap_timer=lap_timer)
+            create_driver_ui(store, lap_timer=lap_timer, mock_source=mock_source)
         else:
             print("Starting Pit UI...")
             from ui.main_window import create_ui
