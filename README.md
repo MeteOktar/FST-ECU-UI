@@ -1,88 +1,104 @@
-Formula Student ECU – Pit UI (Mock Stage)
+# Formula Student ECU – Telemetri UI (Mock Stage)
 
-Bu proje, Formula Student aracı için pit/laptop üzerinde çalışan ECU telemetri arayüzünün ilk geliştirme aşamasını kapsar.
-Bu aşamada gerçek CAN hattı kullanılmaz; sistem tamamen mock verilerle çalışır. Mimari, ileride CAN Bus ve DBC entegrasyonu eklendiğinde UI tarafında değişiklik gerektirmeyecek şekilde tasarlanır.
+Bu proje, Formula Student aracı için **pit/laptop** ve **araç içi sürücü** telemetri arayüzünü kapsar.
+Bu aşamada gerçek CAN hattı kullanılmaz; sistem tamamen mock verilerle çalışır.
+Mimari, ileride CAN Bus ve DBC entegrasyonu eklendiğinde UI tarafında değişiklik gerektirmeyecek şekilde tasarlanmıştır.
 
-Amaç (Bu Aşama)
+## Amaç (Bu Aşama)
 
-    UI ve veri katmanını CAN’dan tamamen bağımsız kurmak
+- UI ve veri katmanını CAN'dan tamamen bağımsız kurmak
+- Realtime grafik ve numeric dashboard'u mock verilerle doğrulamak
+- CAN Bus ve DBC entegrasyonuna sorunsuz geçiş için altyapı hazırlamak
 
-    Realtime grafik ve numeric dashboard’u mock verilerle doğrulamak
+## Kapsam
 
-    CAN Bus ve DBC entegrasyonuna sorunsuz geçiş için altyapı hazırlamak
+**Bu aşamada yapılanlar:**
 
-Kapsam
+- Mock sinyal üretimi (RPM, Speed, TPS, Coolant, Battery, Lambda, Oil Pressure, Oil Temp, Fuel Pressure, Gear)
+- Pit UI: Realtime grafik çizimi (tüm sinyaller)
+- Driver Dashboard: Vites, RPM bar, hız, tur süresi, delta göstergesi
+- Lap Timer: Tur süresi takibi, Personal Best, Delta (PB'ye göre +/-)
+- CAN uyumlu veri akışı mimarisi
 
-    Bu aşamada yapılanlar:
+**Bu aşamada yapılmayanlar:**
 
-        Mock sinyal üretimi (RPM, Speed, TPS, Coolant, Battery, Lambda)
+- Gerçek CAN bağlantısı
+- ECU'ya kalibrasyon parametresi yazma
+- Fault / DTC simülasyonu
 
-        Realtime grafik çizimi
+## Kullanılan Teknolojiler
 
-        Numeric telemetri ekranı
+- Python 3.11+
+- PySide6 (Qt tabanlı UI)
+- pyqtgraph (realtime grafik)
+- NumPy (mock sinyal üretimi ve buffer yönetimi)
+- PyYAML (sinyal konfigürasyonu)
+- python-can (ileride CAN entegrasyonu için)
+- cantools (ileride DBC parsing için)
 
-        Fault / DTC simülasyonu
+## Kurulum
 
-        CAN uyumlu veri akışı mimarisi
+```bash
+python -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-    Bu aşamada yapılmayanlar:
+## Çalıştırma
 
-        Gerçek CAN bağlantısı
+### Pit UI (laptop – tüm sinyallerin grafikleri)
 
-        ECU’ya kalibrasyon parametresi yazma
+```bash
+python ecu-pit-ui/Main.py
+```
 
-        Araç üstü sürücü ekranı (dashboard)
+### Driver Dashboard (araç içi – vites, RPM, hız, lap time)
 
-Kullanılan Teknolojiler
+```bash
+python ecu-pit-ui/Main.py --driver
+```
 
-    Python 3.11+
+Fullscreen açılır. Çıkmak için `Cmd+Q` veya `Alt+F4`.
 
-    PySide6 (Qt tabanlı UI)
+## Dosya Düzeni
 
-    pyqtgraph (realtime grafik)
+```
+ecu-pit-ui/
+├── Main.py                    # Uygulama giriş noktası (--driver flag)
+├── config/
+│   └── signals.yaml           # Sinyal tanımları (unit, min, max, stale)
+├── core/
+│   ├── signals_def.py         # SignalDef dataclass
+│   ├── config_loader.py       # YAML → SignalDef parser
+│   ├── signal_store.py        # Thread-safe merkezi veri deposu
+│   └── lap_timer.py           # Tur süresi takibi ve delta hesaplama
+├── datasource/
+│   └── mock.py                # Mock sinyal üreteci + lap simulation
+└── ui/
+    ├── main_window.py         # Pit UI (pyqtgraph grafikleri)
+    └── driver_dashboard.py    # Sürücü dashboard (RPM bar, vites, hız, lap)
+```
 
-    NumPy (mock sinyal üretimi ve buffer yönetimi)
+## Veri Akışı
 
-    python-can (ileride CAN entegrasyonu için)
+```
+MockDataSource (ileride: CANDataSource)
+        ↓ store.update()
+    SignalStore (thread-safe)
+        ↓ store.snapshot()
+    UI (Qt Timer, 20 Hz)
+        ├── Pit UI (grafikler)
+        └── Driver Dashboard (göstergeler + lap timer)
+```
 
-    cantools (ileride DBC parsing için)
+## Tasarım Kararları
 
-Kurulum
-    pip3 install pyside6 pyqtgraph numpy python-can cantools
+- UI thread hiçbir zaman blocking I/O yapmaz
+- Veri kaynağı (mock / CAN) UI'dan tamamen soyutlanmıştır
+- `SignalStore` ortak interface — aynı store'dan birden fazla UI beslenebilir
+- Realtime performans, estetikten önce gelir
+- Tur tetikleyicisi (mock timer / GPS / IR beacon) `LapTimer.complete_lap()` üzerinden bağlanır
 
-Dosya Düzeni
+## Güzel Kaynak
 
-    ecu-pit-ui/
-    │
-    ├── ui/                  # Qt widget’ları ve layout’lar
-    ├── core/                # SignalStore ve veri modelleri
-    ├── datasource/
-    │   ├── mock.py          # MockDataSource (aktif)
-    │   └── can.py           # CANDataSource (şimdilik boş)
-    ├── logging/             # CSV / Parquet loglama
-    ├── config/
-    │   └── signals.yaml     # Sinyal tanımları (unit, min, max)
-    ├── main.py              # Uygulama giriş noktası
-    └── README.md
-
-Veri Akışı
-    MockDataSource
-        ↓
-    SignalStore
-    (value, timestamp, stale flag)
-        ↓
-    UI (Qt Timer ile render)
-
-Tasarım Kararları
-
-    UI thread hiçbir zaman blocking I/O yapmaz
-
-    Veri kaynağı (mock / CAN) UI’dan tamamen soyutlanmıştır
-
-    MockDataSource, ileride CAN frame veya DBC decode edilmiş sinyal üretecek şekilde değiştirilebilir
-
-    Realtime performans, estetikten önce gelir
-
-güzel kaynak
-
-    https://www.teamtelemetry.de/Team_2023/Manual/manual_guide_English_V0601.pdf
+- https://www.teamtelemetry.de/Team_2023/Manual/manual_guide_English_V0601.pdf
