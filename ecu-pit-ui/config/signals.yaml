@@ -1,42 +1,42 @@
 signals:
- rpm:
-  unit: rpm
-  min: 0
-  max: 14000 #degisebilir egeye sormak lazzim
-  stale_after_s: 0.2
-  description: Engine speed
+  rpm:
+    unit: rpm
+    min: 0
+    max: 14000 #degisebilir egeye sormak lazzim
+    stale_after_s: 0.2
+    description: Engine speed
 
- speed:
-  unit: kmh
-  min: 0
-  max: 140
-  stale_after_s: 0.2
-  description: Vehicle speed 
-  
- tps:
-  unit: pct
-  min: 0
-  max: 100
-  stale_after_s: 0.2
-  description: Throttle position
+  speed:
+    unit: kmh
+    min: 0
+    max: 140
+    stale_after_s: 0.2
+    description: Vehicle speed
 
- coolant:
-  unit: C
-  min: 0
-  max: 130
-  stale_after_s: 1.0
-  description: Coolant temperature
+  tps:
+    unit: pct
+    min: 0
+    max: 100
+    stale_after_s: 0.2
+    description: Throttle position
 
- battery:
-  unit: V
-  min: 0
-  max: 16
-  stale_after_s: 1.0
-  description: Battery Voltage
+  coolant:
+    unit: C
+    min: 0
+    max: 130
+    stale_after_s: 1.0
+    description: Coolant temperature
 
- lambda:
-  unit: lambda
-  min: 0.7
-  max: 1.3
-  stale_after_s: 0.2
-  description: Air fuel ratio lambda
+  battery:
+    unit: V
+    min: 0
+    max: 16
+    stale_after_s: 1.0
+    description: Battery Voltage
+
+  lambda:
+    unit: lambda
+    min: 0.7
+    max: 1.3
+    stale_after_s: 0.2
+    description: Air fuel ratio lambda

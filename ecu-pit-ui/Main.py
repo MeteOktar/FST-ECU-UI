@@ -1,6 +1,9 @@
 import sys
 import time
-sys.path.insert(0, '.')
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE_DIR))
 
 from core.config_loader import load_signal_defs
 from core.signal_store import SignalStore
@@ -9,7 +12,7 @@ from ui.main_window import create_ui
 
 def main():
     print("Initializing FST ECU Pit UI (Mock Stage)...")
-    defs = load_signal_defs("config/signals.yaml")
+    defs = load_signal_defs(BASE_DIR / "config" / "signals.yaml")
     store = SignalStore(defs)
 
     mock_source = MockDataSource(store)

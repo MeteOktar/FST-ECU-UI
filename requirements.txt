@@ -1,0 +1,6 @@
+PySide6>=6.5
+pyqtgraph>=0.13
+numpy>=1.24
+PyYAML>=6.0
+python-can>=4.0
+cantools>=39.0
