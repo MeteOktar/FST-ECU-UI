@@ -4,10 +4,12 @@ import time
 import math
 import random
 from core.signal_store import SignalStore
+from core.lap_timer import LapTimer
 
 class MockDataSource:
-    def __init__(self, store: SignalStore, interval: float = 0.05):
+    def __init__(self, store: SignalStore, lap_timer: LapTimer | None = None, interval: float = 0.05):
         self._store = store
+        self._lap_timer = lap_timer
         self._interval = interval
         self._running = False
         self._thread: threading.Thread | None = None
@@ -20,13 +22,23 @@ class MockDataSource:
         self._battery = 13.5
         self._lambda = 1.0
         self._gear = 1  # Start in 1st gear
+        self._oil_pressure = 0.0
+        self._oil_temp = 20.0
+        self._fuel_pressure = 0.0
+
+        # Lap simulation
+        self._next_lap_at = 0.0  # monotonic time for next lap trigger
 
     def start(self):
         if self._running:
             return
         self._running = True
+        self._paused = False
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
+        if self._lap_timer:
+            self._lap_timer.start_session()
+            self._next_lap_at = time.monotonic() + random.uniform(25, 45)
         print("Mock Data Source Started.")
 
     def stop(self):
@@ -35,9 +47,21 @@ class MockDataSource:
             self._thread.join()
         print("Mock Data Source Stopped.")
 
+    def pause(self):
+        self._paused = True
+        print("Mock Data Source PAUSED (simulating CAN disconnect).")
+
+    def resume(self):
+        self._paused = False
+        print("Mock Data Source RESUMED.")
+
     def _run(self):
         t = 0.0
         while self._running:
+            if self._paused:
+                time.sleep(self._interval)
+                continue
+
             start_time = time.monotonic()
             
             # 1. TPS: Random walk
@@ -52,14 +76,17 @@ class MockDataSource:
             
             # 3. Gear shifting simulation
             # Gear ratios (approximate, higher number = lower gear)
-            gear_ratios = [3.5, 2.0, 1.4, 1.0, 0.8]
+            gear_ratios = [3.5, 2.0, 1.4, 1.0, 0.8, 0.7] # added 6th gear ratio
+            # Ensure gear doesn't exceed ratio list length
+            if self._gear > len(gear_ratios): self._gear = len(gear_ratios)
+            
             ratio = gear_ratios[self._gear - 1]
             
             # Speed: Based on RPM and current gear ratio
             self._speed = (self._rpm / 13000) * 120 / ratio
             
             # Gear shifting logic
-            if self._rpm > 6500 and self._gear < 5:
+            if self._rpm > 6500 and self._gear < 6: # Updated max gear to 6
                 self._gear += 1
                 print(f"Shifted to gear {self._gear}")
             elif self._rpm < 2500 and self._gear > 1 and self._speed > 10:  # Don't downshift at low speed
@@ -78,6 +105,22 @@ class MockDataSource:
             # 6. Lambda: Noise around 1.0
             self._lambda = 1.0 + random.uniform(-0.05, 0.05)
 
+            # 7. Oil Pressure: Based on RPM
+            # Low RPM (1000) -> ~1.5 bar, High RPM (13000) -> ~5.5 bar
+            target_oil_press = 1.5 + (self._rpm / 3000.0)
+            if target_oil_press > 6.0: target_oil_press = 6.0
+            self._oil_pressure = target_oil_press + random.uniform(-0.1, 0.1)
+
+            # 8. Oil Temp: Follows coolant but slower
+            # Oil takes longer to heat up
+            if self._oil_temp < (self._coolant + 10): # Oil eventually runs hotter than coolant
+                self._oil_temp += 0.02
+            else:
+                self._oil_temp += random.uniform(-0.05, 0.05)
+
+            # 9. Fuel Pressure: Constant ~3.5 bar with noise
+            self._fuel_pressure = 3.5 + random.uniform(-0.1, 0.1)
+
             # Update Store
             self._store.update("rpm", self._rpm)
             self._store.update("speed", self._speed)
@@ -85,6 +128,18 @@ class MockDataSource:
             self._store.update("coolant", self._coolant)
             self._store.update("battery", self._battery)
             self._store.update("lambda", self._lambda)
+            self._store.update("oil_pressure", self._oil_pressure)
+            self._store.update("oil_temp", self._oil_temp)
+            self._store.update("fuel_pressure", self._fuel_pressure)
+            self._store.update("gear", float(self._gear))
+
+            # 10. Lap timer simulation
+            if self._lap_timer and time.monotonic() >= self._next_lap_at:
+                info = self._lap_timer.complete_lap()
+                if info:
+                    print(f"Lap {info.lap_number}: {self._lap_timer.format_time(info.lap_time)}"
+                          f"{' (PB!)' if info.is_personal_best else ''}")
+                self._next_lap_at = time.monotonic() + random.uniform(25, 45)
 
             time.sleep(self._interval)
             t += self._interval

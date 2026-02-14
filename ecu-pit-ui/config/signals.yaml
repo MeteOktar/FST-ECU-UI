@@ -40,3 +40,31 @@ signals:
     max: 1.3
     stale_after_s: 0.2
     description: Air fuel ratio lambda
+
+  oil_pressure:
+    unit: bar
+    min: 0
+    max: 10
+    stale_after_s: 0.2
+    description: Engine Oil Pressure
+
+  oil_temp:
+    unit: C
+    min: 0
+    max: 150
+    stale_after_s: 1.0
+    description: Engine Oil Temperature
+
+  fuel_pressure:
+    unit: bar
+    min: 0
+    max: 6
+    stale_after_s: 0.5
+    description: Fuel Rail Pressure
+
+  gear:
+    unit: int
+    min: 0
+    max: 6
+    stale_after_s: 0.2
+    description: Gear Position
