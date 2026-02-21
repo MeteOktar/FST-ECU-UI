@@ -1,7 +1,6 @@
 
 import threading
 import time
-import math
 import random
 from core.signal_store import SignalStore
 from core.lap_timer import LapTimer

@@ -4,9 +4,9 @@ from typing import Dict, List
 
 import pyqtgraph as pg
 from PySide6.QtCore import QTimer
-from PySide6.QtWidgets import QApplication, QGridLayout, QLabel, QMainWindow, QWidget
+from PySide6.QtWidgets import QApplication, QGridLayout, QMainWindow, QWidget
 
-from core.signal_store import SignalStore, SignalValue
+from core.signal_store import SignalStore
 
 
 class MainWindow(QMainWindow):

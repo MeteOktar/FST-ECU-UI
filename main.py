@@ -10,7 +10,6 @@ from core.signal_store import SignalStore
 from core.lap_timer import LapTimer
 from datasource.mock import MockDataSource
 
-
 def main():
     driver_mode = "--driver" in sys.argv
 

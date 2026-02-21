@@ -49,13 +49,13 @@ pip install -r requirements.txt
 ### Pit UI (laptop – tüm sinyallerin grafikleri)
 
 ```bash
-python ecu-pit-ui/Main.py
+python ecu_ui/main.py
 ```
 
 ### Driver Dashboard (araç içi – vites, RPM, hız, lap time)
 
 ```bash
-python ecu-pit-ui/Main.py --driver
+python ecu_ui/main.py --driver
 ```
 
 Fullscreen açılır. Çıkmak için `Cmd+Q` veya `Alt+F4`.
